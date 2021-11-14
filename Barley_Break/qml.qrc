@@ -4,5 +4,7 @@
         <file>Tile.qml</file>
         <file>GameBoard.qml</file>
         <file>TilesModel.qml</file>
+        <file>GameInfoField.qml</file>
+        <file>ReplayWindow.qml</file>
     </qresource>
 </RCC>

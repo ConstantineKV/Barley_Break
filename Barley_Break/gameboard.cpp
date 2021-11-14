@@ -1,6 +1,7 @@
 #include "gameboard.h"
 #include <algorithm>
 #include <random>
+#include <thread>
 
 
 namespace
@@ -46,14 +47,7 @@ namespace
 GameBoard::GameBoard(const size_t boardDimension, QObject* parent) : QAbstractListModel(parent),
     m_dimension(boardDimension), m_boardSize(m_dimension * m_dimension)
 {
-    m_rawBoard.resize(m_boardSize);
-    std::iota(m_rawBoard.begin(), m_rawBoard.end(), 1);
-    do
-    {
-            shuffle();
-    }
-    while(!isBoardValid());
-
+    createBoard();
 }
 
 int GameBoard::rowCount(const QModelIndex &parent) const
@@ -124,6 +118,41 @@ bool GameBoard::isBoardValid() const
     return (inv % 2) == 0;
 }
 
+
+bool GameBoard::checkSuccess()
+{
+    bool success = true;
+    for (int i = 0; i < m_boardSize - 1; i++)
+    {
+        if(m_rawBoard[i+1].value < m_rawBoard[i].value)
+            return false;
+    }
+    return true;
+}
+
+void GameBoard::createBoard()
+{
+    m_rawBoard.resize(m_boardSize);
+
+    std::iota(m_rawBoard.begin(), m_rawBoard.end(), 1);
+    do
+    {
+        shuffle();
+    }
+
+    while(!isBoardValid());
+}
+
+bool GameBoard::changingPosition() const
+{
+    return m_changingPosition;
+}
+
+void GameBoard::setChangingPosition(bool changingPosition)
+{
+    m_changingPosition = changingPosition;
+}
+
 size_t GameBoard::boardSize() const
 {
     return m_boardSize;
@@ -149,11 +178,34 @@ bool GameBoard::move(int index)
     {
         return false;
     }
-
     std::swap(hiddenElementIterator->value, m_rawBoard[index].value);
+    m_indexFrom = index;
+    m_indexTo = std::distance(m_rawBoard.begin(), hiddenElementIterator);
 
-    emit dataChanged(createIndex(0,0), createIndex(m_boardSize, 0));
+    beginMoveRows(QModelIndex(), m_indexFrom, m_indexFrom, QModelIndex(), m_indexTo > m_indexFrom ? m_indexTo + 1 : m_indexTo);
+    endMoveRows();
+
+    if(m_indexFrom > m_indexTo)
+        m_indexTo++;
+    else
+        m_indexTo--;
+
+    if (getRawCol(m_indexTo) != getRawCol(m_indexFrom))
+    {
+        beginMoveRows(QModelIndex(), m_indexTo, m_indexTo, QModelIndex(), m_indexFrom > m_indexTo? m_indexFrom + 1 : m_indexFrom);
+        endMoveRows();
+    }
+
+    if (checkSuccess())
+        emit success();
+
     return true;
+}
+
+void GameBoard::reset()
+{
+    createBoard();
+    emit dataChanged(createIndex(0,0),createIndex(m_boardSize,0));
 }
 
 size_t GameBoard::dimension() const
